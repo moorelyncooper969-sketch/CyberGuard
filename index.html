@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101514">
+  <meta name="description" content="A local-first tool for checking suspicious links and messages.">
+  <title>CyberGuard | Threat Triage</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #101514;
+      --panel: #181f1d;
+      --panel-raised: #202825;
+      --line: #303a35;
+      --ink: #eef2ec;
+      --muted: #a0aaa2;
+      --quiet: #748078;
+      --mint: #b9ef83;
+      --mint-dark: #263a25;
+      --cyan: #83d8cc;
+      --amber: #f3c77b;
+      --red: #ff8e83;
+      --radius: 8px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background-color: var(--page);
+      background-image: radial-gradient(ellipse at 12% 0%, rgba(83, 119, 87, .13), transparent 34%), linear-gradient(135deg, rgba(255,255,255,.018) 25%, transparent 25%, transparent 75%, rgba(255,255,255,.018) 75%);
+      background-size: auto, 28px 28px;
+      font: 15px/1.5 "Segoe UI", Tahoma, sans-serif;
+    }
+    button, textarea { font: inherit; }
+    button { color: inherit; }
+    .topbar { position: sticky; top: 0; z-index: 2; border-bottom: 1px solid var(--line); background: rgba(16,21,20,.94); backdrop-filter: blur(12px); }
+    .topbar-inner, main, .footer-inner { width: min(1180px, calc(100% - 40px)); margin-inline: auto; }
+    .topbar-inner { min-height: 74px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid #52694d; border-radius: 10px; color: var(--mint); background: #202b21; }
+    .brand-mark svg { width: 23px; height: 23px; }
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 17px; line-height: 1.2; }
+    .subtitle { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 12px rgba(185,239,131,.48); }
+    main { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(270px, .85fr); gap: 22px; padding-block: 28px 36px; }
+    .primary, .sidebar { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+    .panel { border: 1px solid var(--line); border-radius: var(--radius); background: rgba(24,31,29,.96); }
+    .mode-panel, .compose-panel, .report, .history, .rules { padding: 18px; }
+    .eyebrow { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+    .mode-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+    .mode-btn { display: flex; align-items: flex-start; gap: 10px; min-height: 70px; padding: 11px; text-align: left; border: 1px solid var(--line); border-radius: 7px; color: #c2cbc4; background: #1c2421; cursor: pointer; transition: border-color .16s, background .16s, transform .16s; }
+    .mode-btn:hover { border-color: #69796c; transform: translateY(-1px); }
+    .mode-btn[aria-pressed="true"] { border-color: #7eaa68; color: var(--ink); background: #273328; box-shadow: inset 3px 0 var(--mint); }
+    .mode-icon { flex: none; color: var(--mint); font-size: 16px; }
+    .mode-btn[data-mode="text"] .mode-icon { color: var(--amber); }
+    .mode-btn[data-mode="advice"] .mode-icon { color: var(--cyan); }
+    .mode-name { display: block; font-size: 12px; font-weight: 700; }
+    .mode-detail { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .compose-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .text-button { padding: 4px 0; border: 0; color: var(--muted); background: transparent; font-size: 12px; cursor: pointer; }
+    .text-button:hover { color: var(--ink); }
+    textarea { display: block; width: 100%; min-height: 160px; margin-top: 12px; padding: 13px; resize: vertical; border: 1px solid var(--line); border-radius: 7px; outline: none; color: var(--ink); background: #111715; font-size: 14px; line-height: 1.55; }
+    textarea::placeholder { color: #738078; }
+    textarea:focus { border-color: #83a46c; box-shadow: 0 0 0 3px rgba(185,239,131,.08); }
+    .sample-row { margin-top: 14px; }
+    .sample-label { margin-bottom: 8px; color: var(--muted); font-size: 11px; }
+    .samples { display: flex; flex-wrap: wrap; gap: 7px; }
+    .sample-btn { padding: 6px 9px; border: 1px solid #37423c; border-radius: 5px; color: #c8d0ca; background: #222b27; font-size: 11px; cursor: pointer; }
+    .sample-btn:hover { border-color: #778b77; background: #2b3530; }
+    .analyze-btn { display: flex; width: 100%; min-height: 46px; align-items: center; justify-content: center; gap: 9px; margin-top: 16px; border: 1px solid #b9ef83; border-radius: 6px; color: #182017; background: var(--mint); font-weight: 750; cursor: pointer; transition: background .15s, transform .15s; }
+    .analyze-btn:hover { background: #cbf5a2; transform: translateY(-1px); }
+    .analyze-btn:disabled { opacity: .65; cursor: wait; transform: none; }
+    .report[hidden] { display: none; }
+    .report-head, .history-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+    .title-with-icon { display: flex; align-items: center; gap: 9px; }
+    .title-with-icon svg { width: 18px; color: var(--cyan); }
+    h2 { font-size: 14px; }
+    .copy-btn { display: flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid var(--line); border-radius: 5px; color: #c5cec7; background: #222b27; font-size: 11px; cursor: pointer; }
+    .copy-btn:hover { border-color: #758576; }
+    .risk-banner { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-top: 14px; padding: 13px; border: 1px solid var(--line); border-radius: 7px; background: #141b18; }
+    .risk-main { display: flex; align-items: center; gap: 11px; }
+    .risk-symbol { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; color: var(--amber); background: #392f20; font-weight: 800; }
+    .risk-label, .score-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .risk-title { margin-top: 2px; font-size: 15px; font-weight: 800; }
+    .score { text-align: right; }
+    .score-value { margin-top: 1px; color: var(--amber); font-size: 17px; font-weight: 800; }
+    .risk-high .risk-symbol { color: var(--red); background: #422522; }
+    .risk-high .risk-title, .risk-high .score-value { color: var(--red); }
+    .risk-medium .risk-symbol { color: var(--amber); background: #392f20; }
+    .risk-low .risk-symbol { color: var(--mint); background: #263825; }
+    .risk-low .risk-title, .risk-low .score-value { color: var(--mint); }
+    .risk-caution .risk-symbol { color: var(--cyan); background: #203536; }
+    .risk-caution .risk-title, .risk-caution .score-value { color: var(--cyan); }
+    .report-content { margin-top: 13px; padding: 15px; border: 1px solid #29332e; border-radius: 7px; background: rgba(16,21,20,.7); }
+    .report-content h3 { margin: 0 0 7px; color: var(--cyan); font-size: 12px; }
+    .report-section + .report-section { margin-top: 15px; }
+    .report-content ul { margin: 0; padding-left: 18px; color: #d0d8d1; font-size: 13px; }
+    .report-content li + li { margin-top: 5px; }
+    .report-content p { color: #d0d8d1; font-size: 13px; }
+    .caveat { margin-top: 13px; padding-top: 11px; border-top: 1px solid #303a35; color: var(--muted); font-size: 11px; }
+    .history { display: flex; min-height: 300px; max-height: 500px; flex-direction: column; }
+    .history-head { margin-bottom: 10px; }
+    .history-list { display: flex; flex: 1; flex-direction: column; gap: 7px; overflow-y: auto; padding-right: 2px; }
+    .history-empty { padding: 28px 10px; color: var(--quiet); text-align: center; font-size: 12px; }
+    .history-item { width: 100%; padding: 10px; border: 1px solid #2b3530; border-radius: 6px; color: var(--ink); background: #141b18; text-align: left; cursor: pointer; }
+    .history-item:hover { border-color: #637665; background: #1e2823; }
+    .history-meta { display: flex; justify-content: space-between; gap: 10px; color: var(--quiet); font-size: 10px; }
+    .history-preview { display: -webkit-box; overflow: hidden; margin-top: 5px; color: #d3dad4; font-size: 12px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+    .rules { padding: 16px 18px; }
+    .rules h2 { margin-bottom: 12px; color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+    .rules ul { margin: 0; padding-left: 17px; color: #cad2cb; font-size: 12px; }
+    .rules li + li { margin-top: 8px; }
+    footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+    .footer-inner { padding-block: 14px; }
+    .footer-inner strong { color: #d6ded7; }
+    @media (max-width: 820px) { main { grid-template-columns: 1fr; } .history { min-height: 230px; max-height: 360px; } }
+    @media (max-width: 560px) { .topbar-inner, main, .footer-inner { width: min(100% - 26px, 1180px); } .topbar-inner { min-height: 67px; } .status { font-size: 0; } .status-dot { width: 9px; height: 9px; } main { gap: 14px; padding-top: 17px; } .primary, .sidebar { gap: 14px; } .mode-panel, .compose-panel, .report, .history, .rules { padding: 14px; } .mode-grid { grid-template-columns: 1fr; } .mode-btn { min-height: 56px; } textarea { min-height: 140px; } .risk-banner { padding: 11px; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 20 6v5c0 5.2-3.4 8.6-8 10-4.6-1.4-8-4.8-8-10V6l8-3Z"/><path d="m8.8 12.1 2.1 2.1 4.5-4.8"/></svg>
+        </div>
+        <div><h1>CyberGuard <span style="color:var(--mint)">/</span> Threat Triage</h1><p class="subtitle">Anti-phishing and scam checks</p></div>
+      </div>
+      <div class="status"><span class="status-dot" aria-hidden="true"></span><span id="serviceStatus">Checking AI connection...</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="primary" aria-label="Threat analysis">
+      <div class="panel mode-panel">
+        <div class="eyebrow">Choose what to check</div>
+        <div class="mode-grid" role="group" aria-label="Analysis mode">
+          <button class="mode-btn" data-mode="link" aria-pressed="true"><span class="mode-icon" aria-hidden="true">↗</span><span><span class="mode-name">Link or URL</span><span class="mode-detail">Domains and suspicious links</span></span></button>
+          <button class="mode-btn" data-mode="text" aria-pressed="false"><span class="mode-icon" aria-hidden="true">▤</span><span><span class="mode-name">SMS or email</span><span class="mode-detail">Scams and social engineering</span></span></button>
+          <button class="mode-btn" data-mode="advice" aria-pressed="false"><span class="mode-icon" aria-hidden="true">⌘</span><span><span class="mode-name">Security advice</span><span class="mode-detail">Questions and next steps</span></span></button>
+        </div>
+      </div>
+
+      <div class="panel compose-panel">
+        <div class="compose-head"><label id="inputLabel" for="userPrompt" class="eyebrow">Paste a suspicious link or URL</label><button id="clearInput" class="text-button" type="button">Clear</button></div>
+        <textarea id="userPrompt" rows="6" spellcheck="false" placeholder="Example: https://secure-update.example.com/account/verify" aria-describedby="localNote"></textarea>
+        <div class="sample-row"><div class="sample-label">Try a sample</div><div class="samples">
+          <button class="sample-btn" type="button" data-sample="bank">Impersonation link</button>
+          <button class="sample-btn" type="button" data-sample="delivery">Delivery text</button>
+          <button class="sample-btn" type="button" data-sample="suspension">Account warning</button>
+        </div></div>
+        <button id="analyzeBtn" class="analyze-btn" type="button"><span aria-hidden="true">⌕</span> Analyze with CyberGuard AI</button>
+      </div>
+
+      <section id="resultsCard" class="panel report" aria-live="polite" hidden>
+        <div class="report-head">
+          <div class="title-with-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 19V5m0 14h16M8 15v-4m4 4V7m4 8v-6m4 6V4"/></svg><h2>Security assessment</h2></div>
+          <button id="copyResults" class="copy-btn" type="button"><span aria-hidden="true">▢</span> Copy report</button>
+        </div>
+        <div id="riskBadge" class="risk-banner risk-caution">
+          <div class="risk-main"><div id="riskIcon" class="risk-symbol" aria-hidden="true">?</div><div><div class="risk-label">Risk level</div><div id="riskTitle" class="risk-title">Unknown / caution</div></div></div>
+            <div class="score"><div class="score-label">AI estimate</div><div id="scoreValue" class="score-value">-- / 100</div></div>
+        </div>
+        <div id="analysisContent" class="report-content"></div>
+        <p id="localNote" class="caveat">AI assessments can be wrong and do not verify a link, sender, or account in real time. Verify unexpected requests through an official channel before acting.</p>
+      </section>
+    </section>
+
+    <aside class="sidebar">
+      <section class="panel history">
+        <div class="history-head"><div class="title-with-icon"><h2>Recent scans</h2></div><button id="clearHistory" class="text-button" type="button">Clear log</button></div>
+        <div id="historyList" class="history-list"><div class="history-empty">No scans saved on this device.</div></div>
+      </section>
+      <section class="panel rules">
+        <h2>Keep your accounts safer</h2>
+        <ul>
+          <li>Open a trusted site directly instead of following an unexpected link.</li>
+          <li>Check the full domain spelling before entering credentials.</li>
+          <li>Never share a password, PIN, or one-time code in response to a message.</li>
+          <li>Contact organizations using the number or website on their official materials.</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <footer><div class="footer-inner"><strong>CyberGuard</strong> · Treat unexpected requests with care. This local tool is not a substitute for professional incident response.</div></footer>
+
+  <script>
+    (() => {
+      const STORAGE_KEY = 'cyberguard_history_v1';
+      const input = document.getElementById('userPrompt');
+      const modes = [...document.querySelectorAll('.mode-btn')];
+      const resultsCard = document.getElementById('resultsCard');
+      const historyList = document.getElementById('historyList');
+      let currentMode = 'link';
+      let scanHistory = readHistory();
+      let latestReport = '';
+
+      const modeDetails = {
+        link: { label: 'Paste a suspicious link or URL', placeholder: 'Example: https://secure-update.example.com/account/verify' },
+        text: { label: 'Paste a suspicious SMS or email', placeholder: 'Paste the message, including any link, sender, or request for payment.' },
+        advice: { label: 'Describe your security concern', placeholder: 'Example: I entered my password after following an unexpected link. What should I do now?' }
+      };
+      const samples = {
+        bank: { mode: 'link', text: 'http://www.bankofamerica-login-security-update.com/signin?ref=urgent' },
+        delivery: { mode: 'text', text: 'Delivery notice: Your package is held due to an address problem. Pay a small redelivery fee now at http://parcel-update.example.invalid/fee' },
+        suspension: { mode: 'text', text: 'URGENT: Your account will be suspended today. Verify your password immediately at http://account-security.example.invalid/restore' }
+      };
+
+      function readHistory() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          return Array.isArray(saved) ? saved.filter(item => item && typeof item.id === 'number' && typeof item.prompt === 'string' && typeof item.report === 'string').slice(0, 15) : [];
+        } catch { return []; }
+      }
+
+      function selectMode(mode) {
+        currentMode = mode;
+        modes.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.mode === mode)));
+        document.getElementById('inputLabel').textContent = modeDetails[mode].label;
+        input.placeholder = modeDetails[mode].placeholder;
+      }
+
+      function makeSection(title, items, paragraph = false) {
+        const section = document.createElement('section');
+        section.className = 'report-section';
+        const heading = document.createElement('h3');
+        heading.textContent = title;
+        section.append(heading);
+        if (paragraph) {
+          const body = document.createElement('p');
+          body.textContent = items;
+          section.append(body);
+        } else {
+          const list = document.createElement('ul');
+          items.forEach(item => { const li = document.createElement('li'); li.textContent = item; list.append(li); });
+          section.append(list);
+        }
+        return section;
+      }
+
+      function renderReport(assessment, prompt) {
+        const badge = document.getElementById('riskBadge');
+        const risk = assessment.riskLevel;
+        const category = risk === 'HIGH RISK' ? 'risk-high' : risk === 'MEDIUM RISK' ? 'risk-medium' : risk === 'LOW RISK / SAFE' ? 'risk-low' : 'risk-caution';
+        badge.className = `risk-banner ${category}`;
+        document.getElementById('riskIcon').textContent = risk === 'HIGH RISK' ? '!' : risk === 'LOW RISK / SAFE' ? '✓' : '?';
+        document.getElementById('riskTitle').textContent = risk;
+        document.getElementById('scoreValue').textContent = `${assessment.score} / 100`;
+        const content = document.getElementById('analysisContent');
+        content.replaceChildren(
+          makeSection('Detected indicators', assessment.redFlags),
+          makeSection('Recommended next steps', assessment.actions),
+          makeSection('A useful reminder', assessment.advice, true)
+        );
+        latestReport = `CyberGuard AI assessment\nRisk: ${risk}\nAI-estimated score: ${assessment.score}/100\n\nDetected indicators:\n- ${assessment.redFlags.join('\n- ')}\n\nRecommended next steps:\n- ${assessment.actions.join('\n- ')}\n\nA useful reminder:\n${assessment.advice}\n\nAI assessment only; this does not confirm whether content is safe.`;
+        resultsCard.hidden = false;
+        if (prompt) saveToHistory(prompt, latestReport);
+      }
+
+      function saveToHistory(prompt, report) {
+        scanHistory.unshift({ id: Date.now(), date: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }), prompt, report });
+        scanHistory = scanHistory.slice(0, 15);
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(scanHistory)); } catch { /* Private browsing may disable storage. */ }
+        renderHistory();
+      }
+
+      function renderHistory() {
+        historyList.replaceChildren();
+        if (!scanHistory.length) {
+          const empty = document.createElement('div');
+          empty.className = 'history-empty';
+          empty.textContent = 'No scans saved on this device.';
+          historyList.append(empty);
+          return;
+        }
+        scanHistory.forEach(item => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'history-item';
+          const meta = document.createElement('span');
+          meta.className = 'history-meta';
+          const date = document.createElement('span');
+          date.textContent = item.date;
+          const arrow = document.createElement('span');
+          arrow.textContent = 'Open';
+          meta.append(date, arrow);
+          const preview = document.createElement('span');
+          preview.className = 'history-preview';
+          preview.textContent = item.prompt;
+          button.append(meta, preview);
+          button.addEventListener('click', () => {
+            input.value = item.prompt;
+            latestReport = item.report;
+            renderStoredReport(item.report);
+          });
+          historyList.append(button);
+        });
+      }
+
+      function renderStoredReport(report) {
+        const lines = report.split('\n');
+        const riskLevel = lines.find(line => line.startsWith('Risk:'))?.slice(5).trim() || 'UNKNOWN / CAUTION';
+        const score = Number(lines.find(line => /(?:AI-estimated|Heuristic) score:/.test(line))?.match(/\d+/)?.[0] || 0);
+        const after = title => {
+          const start = lines.indexOf(title);
+          if (start < 0) return [];
+          const result = [];
+          for (let i = start + 1; i < lines.length && lines[i] && !lines[i].startsWith('A useful reminder:'); i++) {
+            if (lines[i].startsWith('Recommended next steps:')) break;
+            result.push(lines[i].replace(/^- /, ''));
+          }
+          return result;
+        };
+        const adviceStart = lines.indexOf('A useful reminder:');
+        const advice = adviceStart >= 0 ? lines[adviceStart + 1] || '' : '';
+        renderReport({ riskLevel, score, redFlags: after('Detected indicators:'), actions: after('Recommended next steps:'), advice }, '');
+      }
+
+      document.getElementById('analyzeBtn').addEventListener('click', async event => {
+        const prompt = input.value.trim();
+        if (!prompt) { input.focus(); input.setCustomValidity('Enter a link, message, or question first.'); input.reportValidity(); input.setCustomValidity(''); return; }
+        if (prompt.length > 12000) { input.setCustomValidity('Keep the input under 12,000 characters.'); input.reportValidity(); input.setCustomValidity(''); return; }
+        const button = event.currentTarget;
+        const content = document.getElementById('analysisContent');
+        button.disabled = true;
+        button.textContent = 'Analyzing with Gemma 4...';
+        resultsCard.hidden = false;
+        content.textContent = 'Sending your input to Gemma 4 for analysis...';
+        try {
+          const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: currentMode, prompt })
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'The analysis request failed.');
+          const report = data.report || {};
+          const allowedRisks = ['HIGH RISK', 'MEDIUM RISK', 'LOW RISK / SAFE', 'UNKNOWN / CAUTION'];
+          renderReport({
+            riskLevel: allowedRisks.includes(report.riskLevel) ? report.riskLevel : 'UNKNOWN / CAUTION',
+            score: Math.max(0, Math.min(100, Number(report.score) || 0)),
+            redFlags: Array.isArray(report.redFlags) ? report.redFlags.filter(item => typeof item === 'string') : [],
+            actions: Array.isArray(report.actions) ? report.actions.filter(item => typeof item === 'string') : [],
+            advice: typeof report.advice === 'string' ? report.advice : 'Verify unexpected requests through an official channel.'
+          }, prompt);
+        } catch (error) {
+          const message = document.createElement('p');
+          message.style.color = 'var(--red)';
+          message.textContent = error.message === 'Failed to fetch'
+            ? 'Cannot reach the local app server. Start it with the provided run command, then reload this page.'
+            : error.message;
+          content.replaceChildren(message);
+        } finally {
+          button.disabled = false;
+          button.innerHTML = '<span aria-hidden="true">⌕</span> Analyze with CyberGuard AI';
+        }
+      });
+      modes.forEach(button => button.addEventListener('click', () => selectMode(button.dataset.mode)));
+      document.querySelectorAll('[data-sample]').forEach(button => button.addEventListener('click', () => {
+        const sample = samples[button.dataset.sample];
+        selectMode(sample.mode);
+        input.value = sample.text;
+        input.focus();
+      }));
+      document.getElementById('clearInput').addEventListener('click', () => { input.value = ''; input.focus(); });
+      document.getElementById('clearHistory').addEventListener('click', () => {
+        if (scanHistory.length && window.confirm('Clear all scan history saved on this device?')) {
+          scanHistory = [];
+          try { localStorage.removeItem(STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
+          renderHistory();
+        }
+      });
+      document.getElementById('copyResults').addEventListener('click', async event => {
+        if (!latestReport) return;
+        try {
+          await navigator.clipboard.writeText(latestReport);
+          event.currentTarget.innerHTML = '<span aria-hidden="true">✓</span> Copied';
+          window.setTimeout(() => { event.currentTarget.innerHTML = '<span aria-hidden="true">▢</span> Copy report'; }, 1400);
+        } catch {
+          event.currentTarget.textContent = 'Clipboard unavailable';
+        }
+      });
+      fetch('/api/status').then(response => response.json()).then(status => {
+        document.getElementById('serviceStatus').textContent = status.configured ? `Gemma 4 ready · ${status.model}` : 'Google AI API key not configured';
+      }).catch(() => {
+        document.getElementById('serviceStatus').textContent = 'Server offline · run python server.py';
+      });
+      renderHistory();
+    })();
+  </script>
+</body>
+</html>
